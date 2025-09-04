@@ -7,6 +7,10 @@ const PollSchema = new mongoose.Schema({
   votes: {
     type: Map,
     of: Number
+  },
+     voters: {
+    type: [String], // store userId or username here
+    default: []
   }
 });
 

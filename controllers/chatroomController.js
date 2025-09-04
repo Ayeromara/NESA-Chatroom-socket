@@ -25,8 +25,6 @@ exports.getPoll = async (req, res) => {
   let poll = await Poll.findOne({ room });
 
   if (!poll) {
-    // You can dynamically generate options if you have a data source for nominees.
-    // For now, we'll use static options.
     const options = ['Nominee A', 'Nominee B', 'Nominee C'];
     poll = new Poll({
       room,
@@ -42,25 +40,38 @@ exports.getPoll = async (req, res) => {
 
 
 exports.submitVote = async (req, res) => {
-  const { room, option } = req.body;
+  const { room, option, userId } = req.body; 
 
   try {
     const poll = await Poll.findOne({ room });
 
-    if (poll && poll.options.includes(option)) {
-      const currentVotes = poll.votes.get(option) || 0;
-      poll.votes.set(option, currentVotes + 1);
-
-      // Force Mongoose to detect the change
-      poll.markModified('votes');
-      await poll.save();
-
-      res.json({ success: true });
-    } else {
-      res.status(400).json({ error: 'Invalid vote' });
+    if (!poll) {
+      return res.status(404).json({ error: 'Poll not found' });
     }
+
+    if (!poll.options.includes(option)) {
+      return res.status(400).json({ error: 'Invalid option' });
+    }
+
+    // Check if user already voted
+    if (poll.voters.includes(userId)) {
+      return res.status(400).json({ error: 'You have already voted in this poll' });
+    }
+
+    // Count the vote
+    const currentVotes = poll.votes.get(option) || 0;
+    poll.votes.set(option, currentVotes + 1);
+
+    //  Record the voter
+    poll.voters.push(userId);
+
+    poll.markModified('votes'); // ensure mongoose saves map changes
+    await poll.save();
+
+    res.json({ success: true, poll });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to submit vote' });
   }
 };
+
